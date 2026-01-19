@@ -166,7 +166,7 @@ export default function UTMBuilder() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-slate-50 p-8">
       <div className="max-w-[1600px] mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -193,10 +193,10 @@ export default function UTMBuilder() {
         </Tabs>
 
         {/* Main Layout: Left Form + Right Result */}
-        <div className="grid grid-cols-[900px_1fr] gap-6">
+        <div className="grid grid-cols-[1000px_1fr] gap-6">
 
           {/* Left: Input Form */}
-          <Card className="bg-white rounded-xl shadow-sm p-6">
+          <Card className="bg-white rounded-xl shadow-sm p-8 border-blue-200">
             {/* Template & History */}
             <div className="mb-6 flex items-center gap-3">
               <Select onValueChange={loadTemplate}>
@@ -219,7 +219,7 @@ export default function UTMBuilder() {
                   <Badge
                     key={i}
                     variant="outline"
-                    className="cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                    className="cursor-pointer hover:bg-blue-50 hover:border-blue-500 border-blue-200 transition-colors"
                     onClick={() => { setFormData(h); setActiveTab(h.builderType); }}
                   >
                     {h.date}_{h.brands[0]}
@@ -230,8 +230,8 @@ export default function UTMBuilder() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* 3-Column Grid for Main Inputs */}
-              <div className="grid grid-cols-3 gap-4">
+              {/* 4-Column Grid for Main Inputs - Row 1 */}
+              <div className="grid grid-cols-4 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-gray-700">작업일 (YYMMDD)</Label>
                   <Input
@@ -272,7 +272,10 @@ export default function UTMBuilder() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
 
+              {/* 4-Column Grid for Main Inputs - Row 2 */}
+              <div className="grid grid-cols-4 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-gray-700">이슈</Label>
                   <Select value={formData.issue} onValueChange={v => setFormData({ ...formData, issue: v })}>
@@ -292,28 +295,7 @@ export default function UTMBuilder() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
 
-              {/* Brand Selection */}
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium text-gray-700">브랜드</Label>
-                <div className="flex gap-2">
-                  {BRANDS.map(brand => (
-                    <Button
-                      key={brand}
-                      type="button"
-                      variant={formData.brands.includes(brand) ? "default" : "outline"}
-                      className={`flex-1 h-9 ${formData.brands.includes(brand) ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
-                      onClick={() => toggleBrand(brand)}
-                    >
-                      {brand}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Promotion & Material Count */}
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-gray-700">
                     프로모션명 <span className="text-xs text-gray-400">*소문자/숫자만</span>
@@ -326,7 +308,7 @@ export default function UTMBuilder() {
                   />
                 </div>
 
-                {activeTab !== 'BS' && (
+                {activeTab !== 'BS' ? (
                   <div className="space-y-1.5">
                     <Label className="text-sm font-medium text-gray-700">소재 개수</Label>
                     <Input
@@ -338,7 +320,27 @@ export default function UTMBuilder() {
                       onChange={(e) => setFormData({ ...formData, materialCount: parseInt(e.target.value) || 1 })}
                     />
                   </div>
+                ) : (
+                  <div></div>
                 )}
+              </div>
+
+              {/* Brand Selection */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-gray-700">브랜드</Label>
+                <div className="flex gap-2">
+                  {BRANDS.map(brand => (
+                    <Button
+                      key={brand}
+                      type="button"
+                      variant={formData.brands.includes(brand) ? "default" : "outline"}
+                      className={`flex-1 h-9 ${formData.brands.includes(brand) ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'border-blue-200'}`}
+                      onClick={() => toggleBrand(brand)}
+                    >
+                      {brand}
+                    </Button>
+                  ))}
+                </div>
               </div>
 
               {activeTab === 'BS' && (
@@ -392,11 +394,11 @@ export default function UTMBuilder() {
           </Card>
 
           {/* Right: Results */}
-          <Card className="bg-white rounded-xl shadow-sm p-6 sticky top-8 max-h-[calc(100vh-4rem)] overflow-y-auto">
+          <Card className="bg-white rounded-xl shadow-sm p-6 sticky top-8 max-h-[calc(100vh-4rem)] overflow-y-auto border-blue-200">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900">생성 결과</h3>
               {result && (
-                <Badge className="bg-green-100 text-green-700 border-green-200">
+                <Badge className="bg-blue-100 text-blue-700 border-blue-200">
                   {Object.keys(result).length}개 브랜드
                 </Badge>
               )}
@@ -414,10 +416,10 @@ export default function UTMBuilder() {
               <div className="space-y-4">
                 <Accordion type="single" collapsible className="w-full" defaultValue={Object.keys(result)[0]}>
                   {Object.entries(result).map(([brand, data]) => (
-                    <AccordionItem key={brand} value={brand} className="border rounded-lg mb-2 bg-gray-50">
+                    <AccordionItem key={brand} value={brand} className="border border-blue-200 rounded-lg mb-2 bg-blue-50">
                       <AccordionTrigger className="hover:no-underline px-4 py-3">
                         <div className="flex items-center gap-3 w-full">
-                          <Badge className="bg-blue-600">{brand}</Badge>
+                          <Badge className="bg-blue-600 text-white">{brand}</Badge>
                           <span className="text-sm font-medium text-gray-600 truncate flex-1 text-left font-mono">
                             {data.campaign}
                           </span>
@@ -426,17 +428,17 @@ export default function UTMBuilder() {
                       <AccordionContent className="px-4 pb-4">
                         <div className="space-y-3 pt-2">
                           {/* Campaign */}
-                          <div className="bg-white rounded-lg p-3 border">
+                          <div className="bg-white rounded-lg p-3 border border-blue-200">
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-xs font-semibold text-gray-500">Campaign</span>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 px-2 text-xs"
+                                className="h-7 px-2 text-xs hover:bg-blue-50"
                                 onClick={() => handleCopy(data.campaign, `${brand}-camp`)}
                               >
                                 {copiedStatus[`${brand}-camp`] ? (
-                                  <Check className="w-3 h-3 text-green-600" />
+                                  <Check className="w-3 h-3 text-blue-600" />
                                 ) : (
                                   <Copy className="w-3 h-3" />
                                 )}
@@ -448,7 +450,7 @@ export default function UTMBuilder() {
                           </div>
 
                           {/* URLs */}
-                          <div className="bg-white rounded-lg p-3 border">
+                          <div className="bg-white rounded-lg p-3 border border-blue-200">
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-xs font-semibold text-gray-500">
                                 URLs ({data.url.length})
@@ -456,7 +458,7 @@ export default function UTMBuilder() {
                             </div>
                             <div className="space-y-2 max-h-[300px] overflow-y-auto">
                               {data.url.map((url, i) => (
-                                <div key={i} className="text-xs border-b border-gray-100 last:border-0 pb-2 last:pb-0">
+                                <div key={i} className="text-xs border-b border-blue-100 last:border-0 pb-2 last:pb-0">
                                   <div className="flex justify-between items-center text-gray-400 mb-1">
                                     <span className="font-mono text-[10px]">#{i + 1} {data.content[i]}</span>
                                     <button
@@ -465,7 +467,7 @@ export default function UTMBuilder() {
                                       className="hover:text-blue-600 transition-colors"
                                     >
                                       {copiedStatus[`${brand}-u-${i}`] ? (
-                                        <Check className="w-3 h-3 text-green-600" />
+                                        <Check className="w-3 h-3 text-blue-600" />
                                       ) : (
                                         <Copy className="w-3 h-3" />
                                       )}
@@ -488,11 +490,11 @@ export default function UTMBuilder() {
                 <div className="grid grid-cols-2 gap-3">
                   <Button
                     variant="outline"
-                    className="h-10"
+                    className="h-10 border-blue-200 hover:bg-blue-50 hover:border-blue-500"
                     onClick={handleCopyExcel}
                   >
                     {copiedStatus.excel ? (
-                      <Check className="w-4 h-4 mr-2" />
+                      <Check className="w-4 h-4 mr-2 text-blue-600" />
                     ) : (
                       <FileSpreadsheet className="w-4 h-4 mr-2" />
                     )}
@@ -500,7 +502,7 @@ export default function UTMBuilder() {
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-10"
+                    className="h-10 border-blue-200 hover:bg-blue-50 hover:border-blue-500"
                     onClick={handleExportCSV}
                   >
                     <Download className="w-4 h-4 mr-2" />
