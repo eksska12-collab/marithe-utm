@@ -13,6 +13,7 @@ export interface UTMParams {
   builderType: BuilderType;
   urlMode: 'auto' | 'manual';
   manualUrl?: string;
+  utmParamType?: 'content' | 'term'; // utm_content vs utm_term 선택
 }
 
 export interface UTMResult {
@@ -27,5 +28,9 @@ export interface UTMResult {
 export interface UTMTemplate extends UTMParams {
   id: string;
   templateName: string;
+}
+
+export interface ExportOptions {
+  fixedColumnOrder: boolean;
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,7 +23,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { generateUTM, getTodayDate } from '@/lib/utmGenerator';
 import { generateCSV, generateExcelText, downloadCSV } from '@/lib/csvGenerator';
-import { BRANDS, OBJECTIVES, ISSUES, SEASONS } from '@/lib/constants';
+import { BRANDS, OBJECTIVES, ISSUES, SEASONS, MEDIA_PRESETS } from '@/lib/constants';
+import { sanitizePromotion, isFormValid, validateMediaCombination } from '@/lib/validationUtils';
+import { saveHistory, loadHistory, saveTemplate, loadTemplates, deleteTemplate, exportTemplate, exportAllTemplates, importTemplate } from '@/lib/storageUtils';
 import { UTMParams, UTMResult, BuilderType, UTMTemplate } from '@/types';
 import {
   Copy,
@@ -31,7 +33,10 @@ import {
   FileSpreadsheet,
   Download,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  Upload,
+  Save,
+  Trash2
 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
@@ -65,21 +70,25 @@ export default function UTMBuilder() {
     promotion: '',
     materialCount: 1,
     builderType: 'DA',
-    urlMode: 'auto'
+    urlMode: 'auto',
+    utmParamType: 'content'
   });
 
   const [result, setResult] = useState<UTMResult | null>(null);
   const [copiedStatus, setCopiedStatus] = useState<{ [key: string]: boolean }>({});
   const [history, setHistory] = useState<UTMParams[]>([]);
   const [templates, setTemplates] = useState<UTMTemplate[]>([]);
+  const [templateName, setTemplateName] = useState('');
+  const [showTemplateSave, setShowTemplateSave] = useState(false);
+  const [mediaWarning, setMediaWarning] = useState<string>('');
+  const [isFormValidState, setIsFormValidState] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load data
   useEffect(() => {
-    const savedHistory = localStorage.getItem('utm_history');
-    if (savedHistory) setHistory(JSON.parse(savedHistory));
-    const savedTemplates = localStorage.getItem('utm_templates');
-    if (savedTemplates) setTemplates(JSON.parse(savedTemplates));
-  }, []);
+    setHistory(loadHistory(activeTab));
+    setTemplates(loadTemplates());
+  }, [activeTab]);
 
   // Sync builderType
   useEffect(() => {
@@ -91,6 +100,18 @@ export default function UTMBuilder() {
       product: config.products[0]
     }));
   }, [activeTab]);
+
+  // Validate media combination
+  useEffect(() => {
+    const validation = validateMediaCombination(formData.medium, formData.product);
+    setMediaWarning(validation.warning || '');
+  }, [formData.medium, formData.product]);
+
+  // Validate form
+  useEffect(() => {
+    const validation = isFormValid(formData);
+    setIsFormValidState(validation.valid);
+  }, [formData]);
 
   const validate = () => {
     if (!/^\d{6}$/.test(formData.date)) {
@@ -118,10 +139,9 @@ export default function UTMBuilder() {
     const utmResult = generateUTM(formData);
     setResult(utmResult);
 
-    // History update
-    const newHistory = [formData, ...history.filter(h => JSON.stringify(h) !== JSON.stringify(formData))].slice(0, 5);
-    setHistory(newHistory);
-    localStorage.setItem('utm_history', JSON.stringify(newHistory));
+    // History update using new storage utility
+    saveHistory(formData);
+    setHistory(loadHistory(activeTab));
 
     toast({ title: "생성 완료", description: "UTM 파라미터가 생성되었습니다." });
   };
@@ -148,7 +168,7 @@ export default function UTMBuilder() {
     toast({ title: "복사 완료", description: "엑셀에 붙여넣기 하세요." });
   };
 
-  const loadTemplate = (id: string) => {
+  const loadTemplateById = (id: string) => {
     const template = templates.find(t => t.id === id);
     if (template) {
       const { id: _, templateName: __, ...params } = template;
@@ -158,11 +178,68 @@ export default function UTMBuilder() {
     }
   };
 
+  const handleSaveTemplate = () => {
+    if (!templateName.trim()) {
+      toast({ variant: "destructive", title: "오류", description: "템플릿 이름을 입력해주세요." });
+      return;
+    }
+    saveTemplate(formData, templateName);
+    setTemplates(loadTemplates());
+    setTemplateName('');
+    setShowTemplateSave(false);
+    toast({ title: "저장 완료", description: `${templateName} 템플릿이 저장되었습니다.` });
+  };
+
+  const handleDeleteTemplate = (id: string) => {
+    deleteTemplate(id);
+    setTemplates(loadTemplates());
+    toast({ title: "삭제 완료", description: "템플릿이 삭제되었습니다." });
+  };
+
+  const handleExportTemplate = (template: UTMTemplate) => {
+    exportTemplate(template);
+    toast({ title: "내보내기 완료", description: "템플릿 JSON 파일이 다운로드되었습니다." });
+  };
+
+  const handleExportAllTemplates = () => {
+    try {
+      exportAllTemplates();
+      toast({ title: "내보내기 완료", description: "모든 템플릿이 다운로드되었습니다." });
+    } catch (error) {
+      toast({ variant: "destructive", title: "오류", description: (error as Error).message });
+    }
+  };
+
+  const handleImportTemplate = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const template = await importTemplate(file);
+      const { id: _, templateName: __, ...params } = template;
+      setFormData(params);
+      setActiveTab(params.builderType);
+      toast({ title: "불러오기 완료", description: `${template.templateName} 템플릿을 불러왔습니다.` });
+    } catch (error) {
+      toast({ variant: "destructive", title: "오류", description: (error as Error).message });
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const toggleBrand = (brand: string) => {
     setFormData(prev => ({
       ...prev,
       brands: prev.brands.includes(brand) ? prev.brands.filter(b => b !== brand) : [...prev.brands, brand]
     }));
+  };
+
+  const handlePromotionChange = (value: string) => {
+    const sanitized = sanitizePromotion(value);
+    setFormData({ ...formData, promotion: sanitized });
   };
 
   return (
@@ -199,7 +276,7 @@ export default function UTMBuilder() {
           <Card className="bg-white rounded-xl shadow-sm p-8 border-blue-200">
             {/* Template & History */}
             <div className="mb-6 flex items-center gap-3">
-              <Select onValueChange={loadTemplate}>
+              <Select onValueChange={loadTemplateById}>
                 <SelectTrigger className="w-[200px] h-9">
                   <SelectValue placeholder="템플릿 불러오기" />
                 </SelectTrigger>
@@ -227,7 +304,96 @@ export default function UTMBuilder() {
                 ))}
                 {history.length === 0 && <span className="text-xs text-gray-400">최근 기록 없음</span>}
               </div>
+
+              <Separator orientation="vertical" className="h-6" />
+
+              {/* Template Management Buttons */}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 px-3"
+                  onClick={() => setShowTemplateSave(!showTemplateSave)}
+                >
+                  <Save className="w-4 h-4 mr-1" />
+                  저장
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 px-3"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="w-4 h-4 mr-1" />
+                  불러오기
+                </Button>
+                {templates.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 px-3"
+                    onClick={handleExportAllTemplates}
+                  >
+                    <Download className="w-4 h-4 mr-1" />
+                    전체 내보내기
+                  </Button>
+                )}
+              </div>
+
+              {/* Hidden file input for template import */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={handleImportTemplate}
+                aria-label="템플릿 JSON 파일 업로드"
+              />
             </div>
+
+            {/* Template Save Input */}
+            {showTemplateSave && (
+              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">템플릿 이름</Label>
+                <div className="flex gap-2">
+                  <Input
+                    className="h-9 flex-1"
+                    placeholder="예: 메타 트래픽 기본 설정"
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSaveTemplate()}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-9"
+                    onClick={handleSaveTemplate}
+                  >
+                    저장
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    onClick={() => { setShowTemplateSave(false); setTemplateName(''); }}
+                  >
+                    취소
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Media Validation Warning */}
+            {mediaWarning && (
+              <div className="mb-4 p-3 bg-amber-50 text-amber-800 text-sm rounded-lg flex gap-2 items-center border border-amber-200">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                {mediaWarning}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* 4-Column Grid for Main Inputs - Row 1 */}
@@ -303,7 +469,7 @@ export default function UTMBuilder() {
                   <Input
                     className="h-9"
                     value={formData.promotion}
-                    onChange={(e) => setFormData({ ...formData, promotion: e.target.value.toLowerCase().replace(/\s/g, '') })}
+                    onChange={(e) => handlePromotionChange(e.target.value)}
                     placeholder="clearancesale"
                   />
                 </div>
@@ -383,10 +549,36 @@ export default function UTMBuilder() {
                 </div>
               )}
 
+              {/* UTM Parameter Type Selection (DA/SA only) */}
+              {activeTab !== 'BS' && (
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-gray-700">UTM 파라미터 타입</Label>
+                  <RadioGroup
+                    value={formData.utmParamType || 'content'}
+                    onValueChange={(v) => setFormData({ ...formData, utmParamType: v as 'content' | 'term' })}
+                    className="flex gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="content" id="utm-content" />
+                      <Label htmlFor="utm-content" className="font-normal cursor-pointer text-sm">
+                        utm_content (기본)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="term" id="utm-term" />
+                      <Label htmlFor="utm-term" className="font-normal cursor-pointer text-sm">
+                        utm_term
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              )}
+
               {/* Submit Button */}
               <Button
                 type="submit"
-                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-base font-semibold shadow-md"
+                disabled={!isFormValidState}
+                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-base font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 UTM 생성하기
               </Button>

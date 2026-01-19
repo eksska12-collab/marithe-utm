@@ -1,4 +1,5 @@
 import { UTMParams, UTMResult } from '@/types';
+import { buildUrlWithUTM } from './urlUtils';
 
 const BS_AREAS: Record<string, string> = {
   homelink: 'https://marithe-official.com',
@@ -51,7 +52,12 @@ export function generateUTM(params: UTMParams): UTMResult {
         const contentStr = `${date}_${brand}_${season}_${promotion}_01_${area}`;
         content.push(contentStr);
 
-        const fullUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}utm_source=${medium}&utm_medium=${product}&utm_campaign=${campaign}&utm_content=${contentStr}`;
+        const fullUrl = buildUrlWithUTM(baseUrl, {
+          utm_source: medium,
+          utm_medium: product,
+          utm_campaign: campaign,
+          utm_content: contentStr,
+        });
         urls.push(fullUrl);
       });
     } else {
@@ -65,11 +71,26 @@ export function generateUTM(params: UTMParams): UTMResult {
         baseUrl = `https://marithe-official.com${path.startsWith('/') ? '' : '/'}${path}`;
       }
 
-      for (let i = 1; i <= materialCount; i++) {
-        const contentStr = `${date}_${brand}_${season}_${promotion}_img_${i.toString().padStart(2, '0')}`;
-        content.push(contentStr);
+      // utm_content vs utm_term 결정 (기본값: content)
+      const useTermParam = params.utmParamType === 'term';
 
-        const url = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}utm_source=${medium}&utm_medium=${product}&utm_campaign=${campaign}&utm_content=${contentStr}`;
+      for (let i = 1; i <= materialCount; i++) {
+        const paramStr = `${date}_${brand}_${season}_${promotion}_img_${i.toString().padStart(2, '0')}`;
+        content.push(paramStr);
+
+        const utmParams: any = {
+          utm_source: medium,
+          utm_medium: product,
+          utm_campaign: campaign,
+        };
+
+        if (useTermParam) {
+          utmParams.utm_term = paramStr;
+        } else {
+          utmParams.utm_content = paramStr;
+        }
+
+        const url = buildUrlWithUTM(baseUrl, utmParams);
         urls.push(url);
       }
     }
